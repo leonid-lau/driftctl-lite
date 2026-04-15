@@ -4,75 +4,68 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-// LoadOptions configures how state files are discovered and loaded.
+// LoadOptions configures the behaviour of LoadAll.
 type LoadOptions struct {
-	// SearchDirs are directories to search for .tfstate files.
-	SearchDirs []string
-	// Recursive enables recursive directory traversal.
 	Recursive bool
+	Merge     MergeOptions
 }
 
-// DefaultLoadOptions returns sensible defaults for loading state files.
+// DefaultLoadOptions returns safe defaults.
 func DefaultLoadOptions() LoadOptions {
 	return LoadOptions{
-		SearchDirs: []string{"."},
-		Recursive:  false,
+		Recursive: false,
+		Merge:     DefaultMergeOptions(),
 	}
 }
 
-// LoadAll discovers and parses all Terraform state files under the given options.
-// It returns a merged slice of resources from all discovered state files.
-func LoadAll(opts LoadOptions) ([]Resource, error) {
-	paths, err := discoverStateFiles(opts)
+// LoadAll discovers and parses all *.tfstate files under root, then merges them.
+func LoadAll(root string, opts LoadOptions) ([]Resource, error) {
+	files, err := discoverStateFiles(root, opts.Recursive)
 	if err != nil {
 		return nil, fmt.Errorf("discovering state files: %w", err)
 	}
-	if len(paths) == 0 {
-		return nil, fmt.Errorf("no .tfstate files found in search directories: %v", opts.SearchDirs)
+	if len(files) == 0 {
+		return nil, nil
 	}
 
-	var all []Resource
-	for _, p := range paths {
-		resources, err := ParseFile(p)
+	states := make([]State, 0, len(files))
+	for _, f := range files {
+		s, err := ParseFile(f)
 		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", p, err)
+			return nil, fmt.Errorf("parsing %s: %w", f, err)
 		}
-		all = append(all, resources...)
+		states = append(states, *s)
 	}
-	return all, nil
+
+	return MergeStates(states, opts.Merge)
 }
 
-// discoverStateFiles walks the configured directories and collects paths to
-// files ending in ".tfstate".
-func discoverStateFiles(opts LoadOptions) ([]string, error) {
+// discoverStateFiles walks root and collects paths ending in .tfstate.
+func discoverStateFiles(root string, recursive bool) ([]string, error) {
 	var found []string
-	for _, dir := range opts.SearchDirs {
-		if opts.Recursive {
-			err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if !info.IsDir() && strings.HasSuffix(info.Name(), ".tfstate") {
-					found = append(found, path)
-				}
-				return nil
-			})
+
+	if recursive {
+		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
-				return nil, fmt.Errorf("walking directory %s: %w", dir, err)
+				return err
 			}
-		} else {
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				return nil, fmt.Errorf("reading directory %s: %w", dir, err)
+			if !d.IsDir() && filepath.Ext(path) == ".tfstate" {
+				found = append(found, path)
 			}
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".tfstate") {
-					found = append(found, filepath.Join(dir, e.Name()))
-				}
-			}
+			return nil
+		})
+		return found, err
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".tfstate" {
+			found = append(found, filepath.Join(root, e.Name()))
 		}
 	}
 	return found, nil
