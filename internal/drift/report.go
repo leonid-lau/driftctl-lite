@@ -1,56 +1,39 @@
 package drift
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"text/tabwriter"
 )
 
-// Summary holds aggregated counts of drift findings.
-type Summary struct {
-	Missing  int
-	Extra    int
-	Modified int
-	Total    int
+// Report holds the full drift detection result.
+type Report struct {
+	Diffs []Diff `json:"diffs"`
 }
 
-// Summarize computes a Summary from a slice of DriftResults.
-func Summarize(results []DriftResult) Summary {
-	var s Summary
-	for _, r := range results {
-		switch r.Type {
-		case DriftMissing:
-			s.Missing++
-		case DriftExtra:
-			s.Extra++
-		case DriftModified:
-			s.Modified++
-		}
-	}
-	s.Total = s.Missing + s.Extra + s.Modified
-	return s
+// Diff represents a single detected drift between state and live cloud.
+type Diff struct {
+	ResourceID string `json:"resource_id"`
+	ChangeType string `json:"change_type"`
+	Detail     string `json:"detail"`
 }
 
-// WriteReport writes a human-readable drift report to w.
-func WriteReport(w io.Writer, results []DriftResult) error {
-	if len(results) == 0 {
-		_, err := fmt.Fprintln(w, "✓ No drift detected.")
-		return err
+// Summarize returns a human-readable one-line summary of the report.
+func Summarize(r Report) string {
+	if len(r.Diffs) == 0 {
+		return "OK — no drift detected"
 	}
+	counts := map[string]int{}
+	for _, d := range r.Diffs {
+		counts[d.ChangeType]++
+	}
+	return fmt.Sprintf("DRIFT — missing: %d, extra: %d, modified: %d",
+		counts["missing"], counts["extra"], counts["modified"])
+}
 
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "TYPE\tRESOURCE ID\tATTRIBUTE\tEXPECTED\tACTUAL")
-	fmt.Fprintln(tw, "----\t-----------\t---------\t--------\t------")
-	for _, r := range results {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%v\t%v\n",
-			r.Type, r.ResourceID, r.Attribute, r.Expected, r.Actual)
-	}
-	if err := tw.Flush(); err != nil {
-		return err
-	}
-
-	s := Summarize(results)
-	fmt.Fprintf(w, "\nSummary: %d missing, %d extra, %d modified (%d total)\n",
-		s.Missing, s.Extra, s.Modified, s.Total)
-	return nil
+// WriteReport serialises the report as indented JSON to the given writer.
+func WriteReport(w io.Writer, r Report) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(r)
 }
