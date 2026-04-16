@@ -1,44 +1,33 @@
 package tfstate
 
-// Resource represents a single resource entry from a Terraform state file.
+// Resource represents a single Terraform-managed infrastructure resource.
 type Resource struct {
-	// Type is the Terraform resource type, e.g. "aws_instance".
+	// Type is the Terraform resource type, e.g. "aws_s3_bucket".
 	Type string `json:"type"`
-	// Name is the logical name given in the Terraform configuration.
+
+	// ID is the unique identifier of the resource within its type.
+	ID string `json:"id"`
+
+	// Name is the logical Terraform resource name.
 	Name string `json:"name"`
-	// ProviderName identifies the provider, e.g. "registry.terraform.io/hashicorp/aws".
-	ProviderName string `json:"provider_name"`
-	// Attributes holds the resource's attribute key-value pairs as stored in state.
+
+	// Attributes holds the resource's configuration attributes.
 	Attributes map[string]interface{} `json:"attributes"`
+
+	// Tags are cloud-provider tags attached to the resource.
+	Tags map[string]string `json:"tags,omitempty"`
+
+	// Labels are Kubernetes-style labels on the resource.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations are arbitrary metadata annotations on the resource.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// ID returns the value of the "id" attribute if present, otherwise falls back
-// to the resource Name. This mirrors the behaviour of IndexByID in filter.go.
-func (r Resource) ID() string {
-	if id, ok := r.Attributes["id"].(string); ok && id != "" {
-		return id
+// Key returns a unique string key for the resource combining type and ID.
+func (r Resource) Key() string {
+	if r.ID != "" {
+		return r.Type + "/" + r.ID
 	}
-	return r.Name
-}
-
-// HasAttribute reports whether the resource has a non-nil value for the given
-// attribute key.
-func (r Resource) HasAttribute(key string) bool {
-	_, ok := r.Attributes[key]
-	return ok
-}
-
-// AttributeString returns the string representation of an attribute value.
-// Returns an empty string when the key is absent.
-func (r Resource) AttributeString(key string) string {
-	v, ok := r.Attributes[key]
-	if !ok || v == nil {
-		return ""
-	}
-	switch s := v.(type) {
-	case string:
-		return s
-	default:
-		return ""
-	}
+	return r.Type + "/" + r.Name
 }
