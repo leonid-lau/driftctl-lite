@@ -1,33 +1,29 @@
 package tfstate
 
-// Resource represents a single Terraform-managed infrastructure resource.
+// Resource represents a single Terraform-managed cloud resource.
 type Resource struct {
-	// Type is the Terraform resource type, e.g. "aws_s3_bucket".
+	// Type is the Terraform resource type, e.g. "aws_instance".
 	Type string `json:"type"`
 
-	// ID is the unique identifier of the resource within its type.
+	// ID is the primary identifier of the resource.
 	ID string `json:"id"`
 
 	// Name is the logical Terraform resource name.
 	Name string `json:"name"`
 
-	// Attributes holds the resource's configuration attributes.
+	// Namespace groups resources into logical scopes (e.g. Kubernetes namespace
+	// or a custom organisational boundary).
+	Namespace string `json:"namespace,omitempty"`
+
+	// Attributes holds the raw attribute map from the state.
 	Attributes map[string]interface{} `json:"attributes"`
 
-	// Tags are cloud-provider tags attached to the resource.
+	// Tags are AWS-style key/value metadata pairs.
 	Tags map[string]string `json:"tags,omitempty"`
 
-	// Labels are Kubernetes-style labels on the resource.
+	// Labels are Kubernetes-style key/value metadata pairs.
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// Annotations are arbitrary metadata annotations on the resource.
+	// Annotations are Kubernetes-style annotation pairs.
 	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-// Key returns a unique string key for the resource combining type and ID.
-func (r Resource) Key() string {
-	if r.ID != "" {
-		return r.Type + "/" + r.ID
-	}
-	return r.Type + "/" + r.Name
 }
