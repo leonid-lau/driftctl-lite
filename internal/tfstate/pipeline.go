@@ -36,6 +36,10 @@ func NewPipeline(opts PipelineOptions) *Pipeline {
 
 // Run executes the pipeline for the given root directory and returns a merged State.
 func (p *Pipeline) Run(dir string) (*State, error) {
+	if dir == "" {
+		return nil, fmt.Errorf("pipeline run: dir must not be empty")
+	}
+
 	var states []*State
 	var err error
 
