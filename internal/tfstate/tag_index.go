@@ -48,3 +48,9 @@ func (idx *TagIndex) Keys() []string {
 	}
 	return keys
 }
+
+// HasTag reports whether any indexed resource has the given tag key and value.
+// If value is empty, it checks for the presence of the key with any value.
+func (idx *TagIndex) HasTag(key, value string) bool {
+	return len(idx.LookupByTag(key, value)) > 0
+}
