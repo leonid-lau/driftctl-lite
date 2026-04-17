@@ -60,3 +60,26 @@ func FilterByOwners(resources []Resource, owners []string, opts OwnerFilterOptio
 	}
 	return out
 }
+
+// ExcludeByOwner returns resources whose Owner metadata field does NOT match owner.
+// An empty owner string returns all resources unchanged.
+func ExcludeByOwner(resources []Resource, owner string, opts OwnerFilterOptions) []Resource {
+	if owner == "" {
+		return resources
+	}
+	want := owner
+	if !opts.CaseSensitive {
+		want = toLower(owner)
+	}
+	var out []Resource
+	for _, r := range resources {
+		val := r.Metadata["owner"]
+		if !opts.CaseSensitive {
+			val = toLower(val)
+		}
+		if val != want {
+			out = append(out, r)
+		}
+	}
+	return out
+}
