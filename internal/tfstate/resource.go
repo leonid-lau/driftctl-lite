@@ -2,28 +2,34 @@ package tfstate
 
 // Resource represents a single Terraform-managed cloud resource.
 type Resource struct {
-	// Type is the Terraform resource type, e.g. "aws_instance".
-	Type string `json:"type"`
-
-	// ID is the primary identifier of the resource.
-	ID string `json:"id"`
-
-	// Name is the logical Terraform resource name.
-	Name string `json:"name"`
-
-	// Namespace groups resources into logical scopes (e.g. Kubernetes namespace
-	// or a custom organisational boundary).
-	Namespace string `json:"namespace,omitempty"`
-
-	// Attributes holds the raw attribute map from the state.
-	Attributes map[string]interface{} `json:"attributes"`
-
-	// Tags are AWS-style key/value metadata pairs.
-	Tags map[string]string `json:"tags,omitempty"`
-
-	// Labels are Kubernetes-style key/value metadata pairs.
-	Labels map[string]string `json:"labels,omitempty"`
-
-	// Annotations are Kubernetes-style annotation pairs.
-	Annotations map[string]string `json:"annotations,omitempty"`
+	// ID is the unique cloud identifier (e.g. ARN, resource ID).
+	ID string
+	// Type is the Terraform resource type (e.g. aws_instance).
+	Type string
+	// Name is the Terraform logical name.
+	Name string
+	// Namespace groups resources (e.g. Kubernetes namespace or AWS account).
+	Namespace string
+	// Attributes holds the resource's configuration key-value pairs.
+	Attributes map[string]interface{}
+	// Tags are cloud provider tags attached to the resource.
+	Tags map[string]string
+	// Labels are arbitrary key-value metadata (Kubernetes-style).
+	Labels map[string]string
+	// Annotations are non-identifying metadata.
+	Annotations map[string]string
+	// Owner identifies the team or individual responsible.
+	Owner string
+	// Status is the current lifecycle status of the resource.
+	Status string
+	// Region is the cloud region where the resource lives.
+	Region string
+	// Environment identifies the deployment environment (e.g. prod, staging).
+	Environment string
+	// Severity indicates the drift severity level if applicable.
+	Severity string
+	// Priority indicates the remediation priority.
+	Priority string
+	// Source indicates the origin of the resource record (e.g. terraform, manual).
+	Source string
 }
