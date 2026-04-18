@@ -25,6 +25,11 @@ func (rd ResourceDiff) String() string {
 	return fmt.Sprintf("resource %q (%s): %d attribute(s) changed", rd.ResourceID, rd.Type, len(rd.Diffs))
 }
 
+// HasChanges reports whether the ResourceDiff contains any attribute differences.
+func (rd ResourceDiff) HasChanges() bool {
+	return len(rd.Diffs) > 0
+}
+
 // DiffAttributes compares two attribute maps and returns a slice of AttributeDiff.
 // Both maps are expected to be map[string]interface{} encoded as json.RawMessage values.
 func DiffAttributes(stateAttrs, liveAttrs map[string]interface{}) []AttributeDiff {
