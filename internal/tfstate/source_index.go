@@ -30,3 +30,12 @@ func (si *SourceIndex) Sources() []string {
 	}
 	return keys
 }
+
+// Count returns the total number of resources across all sources.
+func (si *SourceIndex) Count() int {
+	total := 0
+	for _, resources := range si.index {
+		total += len(resources)
+	}
+	return total
+}
