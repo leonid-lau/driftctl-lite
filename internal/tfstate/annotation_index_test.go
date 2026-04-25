@@ -79,3 +79,15 @@ func TestBuildAnnotationIndex_MissingKey_ReturnsNil(t *testing.T) {
 		t.Fatalf("expected nil for missing key, got %v", result)
 	}
 }
+
+func TestBuildAnnotationIndex_EmptyResources_ReturnsNil(t *testing.T) {
+	idx := BuildAnnotationIndex([]Resource{})
+	result := idx.Lookup("env", "prod")
+	if result != nil {
+		t.Fatalf("expected nil for empty index, got %v", result)
+	}
+	keys := idx.Keys()
+	if len(keys) != 0 {
+		t.Fatalf("expected no keys for empty index, got %v", keys)
+	}
+}
