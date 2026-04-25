@@ -35,3 +35,12 @@ func (idx *WorkspaceIndex) Workspaces() []string {
 	}
 	return keys
 }
+
+// Count returns the total number of resources across all workspaces.
+func (idx *WorkspaceIndex) Count() int {
+	total := 0
+	for _, resources := range idx.m {
+		total += len(resources)
+	}
+	return total
+}
