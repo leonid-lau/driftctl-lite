@@ -74,6 +74,32 @@ func TestDetect_ModifiedAttribute(t *testing.T) {
 	}
 }
 
+// TestDetect_MultipleModifiedAttributes verifies that each differing attribute
+// produces a separate DriftModified result when multiple attributes diverge.
+func TestDetect_MultipleModifiedAttributes(t *testing.T) {
+	det := drift.NewDetector()
+	si := map[string]tfstate.Resource{
+		"i-002": {Name: "app2", Type: "aws_instance", Attributes: map[string]interface{}{
+			"id":            "i-002",
+			"instance_type": "t2.micro",
+			"ami":           "ami-old",
+		}},
+	}
+	li := map[string]map[string]interface{}{
+		"i-002": {"id": "i-002", "instance_type": "t3.large", "ami": "ami-new"},
+	}
+	results := det.Detect(si, li)
+	modifiedCount := 0
+	for _, r := range results {
+		if r.Type == drift.DriftModified {
+			modifiedCount++
+		}
+	}
+	if modifiedCount != 2 {
+		t.Fatalf("expected 2 MODIFIED drift results, got %d: %v", modifiedCount, results)
+	}
+}
+
 func TestDriftResult_String(t *testing.T) {
 	cases := []struct {
 		result   drift.DriftResult
