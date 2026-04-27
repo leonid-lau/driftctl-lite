@@ -4,66 +4,70 @@ import (
 	"testing"
 )
 
-func tagResource(id, rtype string, attrs map[string]string) Resource {
-	return Resource{ID: id, Type: rtype, Attributes: attrs}
+func tagResource(id, tagKey, tagVal string) Resource {
+	attrs := map[string]string{}
+	if tagKey != "" {
+		attrs["tags."+tagKey] = tagVal
+	}
+	return Resource{ID: id, Type: "aws_instance", Attributes: attrs}
 }
 
 func TestFilterByTag_MatchKeyAndValue(t *testing.T) {
 	resources := []Resource{
-		tagResource("r1", "aws_instance", map[string]string{"tag.env": "prod"}),
-		tagResource("r2", "aws_instance", map[string]string{"tag.env": "dev"}),
-		tagResource("r3", "aws_s3_bucket", map[string]string{"tag.env": "prod"}),
+		tagResource("r1", "env", "prod"),
+		tagResource("r2", "env", "dev"),
+		tagResource("r3", "team", "platform"),
 	}
-	got := FilterByTag(resources, TagFilter{Key: "env", Value: "prod"})
-	if len(got) != 2 {
-		t.Fatalf("expected 2, got %d", len(got))
+	got := FilterByTag(resources, "env", "prod")
+	if len(got) != 1 || got[0].ID != "r1" {
+		t.Fatalf("expected r1, got %+v", got)
 	}
 }
 
 func TestFilterByTag_MatchKeyOnly(t *testing.T) {
 	resources := []Resource{
-		tagResource("r1", "aws_instance", map[string]string{"tag.env": "prod"}),
-		tagResource("r2", "aws_instance", map[string]string{"tag.team": "ops"}),
+		tagResource("r1", "env", "prod"),
+		tagResource("r2", "env", "dev"),
+		tagResource("r3", "team", "platform"),
 	}
-	got := FilterByTag(resources, TagFilter{Key: "env"})
-	if len(got) != 1 || got[0].ID != "r1" {
-		t.Fatalf("unexpected result: %v", got)
+	got := FilterByTag(resources, "env", "")
+	if len(got) != 2 {
+		t.Fatalf("expected 2, got %d", len(got))
 	}
 }
 
 func TestFilterByTag_EmptyKey_ReturnsAll(t *testing.T) {
 	resources := []Resource{
-		tagResource("r1", "aws_instance", map[string]string{"tag.env": "prod"}),
-		tagResource("r2", "aws_instance", map[string]string{}),
+		tagResource("r1", "env", "prod"),
+		tagResource("r2", "team", "sre"),
 	}
-	got := FilterByTag(resources, TagFilter{})
+	got := FilterByTag(resources, "", "")
 	if len(got) != 2 {
 		t.Fatalf("expected 2, got %d", len(got))
 	}
 }
 
 func TestFilterByTags_ANDSemantics(t *testing.T) {
-	resources := []Resource{
-		tagResource("r1", "aws_instance", map[string]string{"tag.env": "prod", "tag.team": "ops"}),
-		tagResource("r2", "aws_instance", map[string]string{"tag.env": "prod", "tag.team": "dev"}),
-		tagResource("r3", "aws_instance", map[string]string{"tag.env": "staging"}),
-	}
-	filters := []TagFilter{
-		{Key: "env", Value: "prod"},
-		{Key: "team", Value: "ops"},
-	}
-	got := FilterByTags(resources, filters)
+	r1 := Resource{ID: "r1", Type: "aws_instance", Attributes: map[string]string{
+		"tags.env": "prod", "tags.team": "sre",
+	}}
+	r2 := Resource{ID: "r2", Type: "aws_instance", Attributes: map[string]string{
+		"tags.env": "prod",
+	}}
+	resources := []Resource{r1, r2}
+	got := FilterByTags(resources, map[string]string{"env": "prod", "team": "sre"})
 	if len(got) != 1 || got[0].ID != "r1" {
-		t.Fatalf("expected only r1, got %v", got)
+		t.Fatalf("expected r1, got %+v", got)
 	}
 }
 
-func TestFilterByTag_NoMatch(t *testing.T) {
+func TestFilterByTags_EmptyMap_ReturnsAll(t *testing.T) {
 	resources := []Resource{
-		tagResource("r1", "aws_instance", map[string]string{"tag.env": "prod"}),
+		tagResource("r1", "env", "prod"),
+		tagResource("r2", "env", "dev"),
 	}
-	got := FilterByTag(resources, TagFilter{Key: "owner", Value: "alice"})
-	if len(got) != 0 {
-		t.Fatalf("expected 0, got %d", len(got))
+	got := FilterByTags(resources, map[string]string{})
+	if len(got) != 2 {
+		t.Fatalf("expected 2, got %d", len(got))
 	}
 }

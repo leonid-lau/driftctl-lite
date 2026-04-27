@@ -1,56 +1,57 @@
 package tfstate
 
-// TagIndex provides fast lookup of resources by tag key/value pairs.
+// TagIndex maps tag key -> tag value -> list of resources.
 type TagIndex struct {
-	// byTag maps "key=value" -> list of resource IDs
-	byTag map[string][]string
-	// byKey maps tag key -> list of resource IDs
-	byKey map[string][]string
+	idx map[string]map[string][]Resource
 }
 
-// BuildTagIndex constructs a TagIndex from a slice of Resources.
+// BuildTagIndex constructs a TagIndex from the given resources.
 func BuildTagIndex(resources []Resource) *TagIndex {
-	idx := &TagIndex{
-		byTag: make(map[string][]string),
-		byKey: make(map[string][]string),
-	}
+	idx := &TagIndex{idx: make(map[string]map[string][]Resource)}
 	for _, r := range resources {
-		id := fallbackKey(r)
-		for k, v := range r.Attributes {
-			if len(k) > 4 && k[:5] == "tags." {
-				tagKey := k[5:]
-				composite := tagKey + "=" + v
-				idx.byTag[composite] = append(idx.byTag[composite], id)
-				idx.byKey[tagKey] = append(idx.byKey[tagKey], id)
+		for attrKey, attrVal := range r.Attributes {
+			var tagKey string
+			if len(attrKey) > 5 && attrKey[:5] == "tags." {
+				tagKey = attrKey[5:]
+			} else if len(attrKey) > 4 && attrKey[:4] == "tag." {
+				tagKey = attrKey[4:]
+			} else {
+				continue
 			}
+			if idx.idx[tagKey] == nil {
+				idx.idx[tagKey] = make(map[string][]Resource)
+			}
+			idx.idx[tagKey][attrVal] = append(idx.idx[tagKey][attrVal], r)
 		}
 	}
 	return idx
 }
 
-// LookupByTag returns resource IDs matching the given tag key and value.
-// If value is empty, matches any resource with the given key.
-func (idx *TagIndex) LookupByTag(key, value string) []string {
+// Lookup returns resources matching the key (and optionally value).
+// If value is empty, all resources with that tag key are returned.
+func (t *TagIndex) Lookup(key, value string) []Resource {
 	if key == "" {
 		return nil
 	}
-	if value == "" {
-		return idx.byKey[key]
+	valMap, ok := t.idx[key]
+	if !ok {
+		return nil
 	}
-	return idx.byTag[key+"="+value]
+	if value == "" {
+		var all []Resource
+		for _, rs := range valMap {
+			all = append(all, rs...)
+		}
+		return all
+	}
+	return valMap[value]
 }
 
 // Keys returns all indexed tag keys.
-func (idx *TagIndex) Keys() []string {
-	keys := make([]string, 0, len(idx.byKey))
-	for k := range idx.byKey {
+func (t *TagIndex) Keys() []string {
+	keys := make([]string, 0, len(t.idx))
+	for k := range t.idx {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-// HasTag reports whether any indexed resource has the given tag key and value.
-// If value is empty, it checks for the presence of the key with any value.
-func (idx *TagIndex) HasTag(key, value string) bool {
-	return len(idx.LookupByTag(key, value)) > 0
 }

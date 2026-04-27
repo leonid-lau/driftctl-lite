@@ -1,38 +1,34 @@
 package tfstate
 
-import "github.com/driftctl-lite/internal/tfstate"
-
-// TagFilter holds criteria for filtering resources by their tags.
-type TagFilter struct {
-	Key   string
-	Value string // empty means match any value for the key
-}
-
-// FilterByTag returns resources whose attributes contain a matching tag entry.
-// Tags are expected under attributes as "tag.<key>" = "<value>".
-func FilterByTag(resources []Resource, f TagFilter) []Resource {
-	if f.Key == "" {
+// FilterByTag returns resources matching the given tag key (and optionally value).
+// If key is empty, all resources are returned.
+// If value is empty, any resource with the key present is returned.
+func FilterByTag(resources []Resource, key, value string) []Resource {
+	if key == "" {
 		return resources
 	}
-	tagKey := "tag." + f.Key
 	var out []Resource
 	for _, r := range resources {
-		v, ok := r.Attributes[tagKey]
+		v, ok := r.Attributes["tags." + key]
+		if !ok {
+			v, ok = r.Attributes["tag." + key]
+		}
 		if !ok {
 			continue
 		}
-		if f.Value == "" || v == f.Value {
+		if value == "" || v == value {
 			out = append(out, r)
 		}
 	}
 	return out
 }
 
-// FilterByTags applies multiple TagFilters (AND semantics).
-func FilterByTags(resources []Resource, filters []TagFilter) []Resource {
-	result := resources
-	for _, f := range filters {
-		result = FilterByTag(result, f)
+// FilterByTags applies AND semantics across all provided key/value pairs.
+// A resource must match ALL pairs to be included.
+func FilterByTags(resources []Resource, tags map[string]string) []Resource {
+	out := resources
+	for k, v := range tags {
+		out = FilterByTag(out, k, v)
 	}
-	return result
+	return out
 }
